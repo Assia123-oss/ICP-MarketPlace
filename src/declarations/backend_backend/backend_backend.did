@@ -1,0 +1,20 @@
+type User = 
+ record {
+   email: text;
+   id: text;
+   name: text;
+   portfolio: opt text;
+   role: Role;
+ };
+type Role = 
+ variant {
+   Employer;
+   JobSeeker;
+ };
+service : {
+  getUser: (id: text) -> (opt User) query;
+  registerUser: (id: text, name: text, email: text, role: Role, portfolio:
+   opt text) -> (text);
+  updateUser: (id: text, name: text, email: text, portfolio: opt text) ->
+   (text);
+}
