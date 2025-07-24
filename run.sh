@@ -5,7 +5,7 @@
 echo "Starting the ICP Job Marketplace application..."
 
 # Navigate to the backend directory
-cd "$(dirname "$0")/backend" || { echo "Error: Could not navigate to backend directory"; exit 1; }
+# cd "$(dirname "$0")/backend" || { echo "Error: Could not navigate to backend directory"; exit 1; }
 
 # Check if dfx is installed
 if ! command -v dfx &> /dev/null; then

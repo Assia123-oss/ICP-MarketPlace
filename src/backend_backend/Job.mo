@@ -10,7 +10,12 @@ import Result "mo:base/Result";
 import HashMap "mo:base/HashMap";
 
 module {
-  public type Error = Types.Error;
+  public type Error = {
+    #JobNotFound;
+    #InvalidInput;
+    #Unauthorized;
+    #OperationFailed;
+  };
 
   public type Result<T> = Result.Result<T, Error>;
 
@@ -23,8 +28,8 @@ module {
     };
 
     // Helper: remove job by ID
-    private func removeJobById(id: Text) : HashMap.HashMap<Text, Types.JobListing> {
-      jobs.delete(id)
+    private func removeJobById(id: Text) : () {
+      ignore jobs.remove(id)
     };
 
     // Add job validation
@@ -45,9 +50,6 @@ module {
         return #err(#InvalidInput);
       };
 
-      // Check employer exists (would need userManager reference)
-      // ...
-
       let newJob : Types.JobListing = {
         id = id;
         title = title;
@@ -63,7 +65,7 @@ module {
         createdAt = Time.now();
         updatedAt = Time.now();
         deadline = deadline;
-        applications = List.nil(); // Track applications
+        applications = List.nil();
       };
       jobs.put(id, newJob);
       #ok(newJob)
@@ -123,7 +125,7 @@ module {
             createdAt = job.createdAt;
             updatedAt = Time.now();
             deadline = deadline;
-            applications = job.applications; // Keep existing applications
+            applications = job.applications;
           };
           jobs.put(id, updatedJob);
           #ok(updatedJob)
@@ -138,7 +140,7 @@ module {
           #err(#JobNotFound)
         };
         case (?_) {
-          jobs := removeJobById(id);
+          removeJobById(id);
           #ok(())
         };
       };
@@ -166,7 +168,7 @@ module {
             createdAt = job.createdAt;
             updatedAt = Time.now();
             deadline = job.deadline;
-            applications = job.applications; // Keep existing applications
+            applications = job.applications;
           };
           jobs.put(id, updatedJob);
           #ok(updatedJob)
@@ -176,85 +178,78 @@ module {
 
     // Get all jobs
     public func getAllJobs() : [Types.JobListing] {
-      List.toArray(List.fromIter(jobs.entries().vals()))
+      Iter.toArray(jobs.vals())
     };
 
     // Get jobs by employer
     public func getJobsByEmployer(employerId: Text) : [Types.JobListing] {
-      let filteredJobs = List.filter<Types.JobListing>(List.fromIter(jobs.entries().vals()), func(entry: (Text, Types.JobListing)) : Bool {
-        entry.1.employerId == employerId
-      });
-      List.toArray(List.map<Types.JobListing>(filteredJobs, func(entry: (Text, Types.JobListing)) : Types.JobListing {
-        entry.1
-      }))
+      let filteredJobs = Iter.filter<Types.JobListing>(
+        jobs.vals(),
+        func(job) { job.employerId == employerId }
+      );
+      Iter.toArray(filteredJobs)
     };
 
     // Get jobs by status
     public func getJobsByStatus(status: Types.JobStatus) : [Types.JobListing] {
-      let filteredJobs = List.filter<Types.JobListing>(List.fromIter(jobs.entries().vals()), func(entry: (Text, Types.JobListing)) : Bool {
-        entry.1.status == status
-      });
-      List.toArray(List.map<Types.JobListing>(filteredJobs, func(entry: (Text, Types.JobListing)) : Types.JobListing {
-        entry.1
-      }))
+      let filteredJobs = Iter.filter<Types.JobListing>(
+        jobs.vals(),
+        func(job) { job.status == status }
+      );
+      Iter.toArray(filteredJobs)
     };
 
     // Get jobs by type
     public func getJobsByType(jobType: Types.JobType) : [Types.JobListing] {
-      let filteredJobs = List.filter<Types.JobListing>(List.fromIter(jobs.entries().vals()), func(entry: (Text, Types.JobListing)) : Bool {
-        entry.1.jobType == jobType
-      });
-      List.toArray(List.map<Types.JobListing>(filteredJobs, func(entry: (Text, Types.JobListing)) : Types.JobListing {
-        entry.1
-      }))
+      let filteredJobs = Iter.filter<Types.JobListing>(
+        jobs.vals(),
+        func(job) { job.jobType == jobType }
+      );
+      Iter.toArray(filteredJobs)
     };
 
     // Search jobs by title or description
     public func searchJobs(searchQuery: Text) : [Types.JobListing] {
       let queryLower = Text.toLowercase(searchQuery);
-      let filteredJobs = List.filter<Types.JobListing>(List.fromIter(jobs.entries().vals()), func(entry: (Text, Types.JobListing)) : Bool {
-        let titleLower = Text.toLowercase(entry.1.title);
-        let descLower = Text.toLowercase(entry.1.description);
-
-        Text.contains(titleLower, #text queryLower) or Text.contains(descLower, #text queryLower)
-      });
-      List.toArray(List.map<Types.JobListing>(filteredJobs, func(entry: (Text, Types.JobListing)) : Types.JobListing {
-        entry.1
-      }))
+      let filteredJobs = Iter.filter<Types.JobListing>(
+        jobs.vals(),
+        func(job) {
+          let titleLower = Text.toLowercase(job.title);
+          let descLower = Text.toLowercase(job.description);
+          Text.contains(titleLower, #text queryLower) or Text.contains(descLower, #text queryLower)
+        }
+      );
+      Iter.toArray(filteredJobs)
     };
 
     // Filter jobs by skills
     public func filterJobsBySkills(requiredSkills: [Text]) : [Types.JobListing] {
-      let filteredJobs = List.filter<Types.JobListing>(List.fromIter(jobs.entries().vals()), func(entry: (Text, Types.JobListing)) : Bool {
-        let jobSkills = List.toArray(entry.1.skills);
-
-        // Check if any of the required skills match the job skills
-        for (requiredSkill in requiredSkills.vals()) {
-          for (jobSkill in jobSkills.vals()) {
-            if (Text.toLowercase(requiredSkill) == Text.toLowercase(jobSkill)) {
-              return true;
+      let filteredJobs = Iter.filter<Types.JobListing>(
+        jobs.vals(),
+        func(job) {
+          let jobSkills = List.toArray(job.skills);
+          for (requiredSkill in requiredSkills.vals()) {
+            for (jobSkill in jobSkills.vals()) {
+              if (Text.toLowercase(requiredSkill) == Text.toLowercase(jobSkill)) {
+                return true;
+              };
             };
           };
-        };
-
-        false
-      });
-      List.toArray(List.map<Types.JobListing>(filteredJobs, func(entry: (Text, Types.JobListing)) : Types.JobListing {
-        entry.1
-      }))
+          false
+        }
+      );
+      Iter.toArray(filteredJobs)
     };
 
     // Get recent jobs (jobs created within the last n nanoseconds)
     public func getRecentJobs(timeWindow: Time.Time) : [Types.JobListing] {
       let now = Time.now();
       let cutoffTime = now - timeWindow;
-
-      let filteredJobs = List.filter<Types.JobListing>(List.fromIter(jobs.entries().vals()), func(entry: (Text, Types.JobListing)) : Bool {
-        entry.1.createdAt >= cutoffTime
-      });
-      List.toArray(List.map<Types.JobListing>(filteredJobs, func(entry: (Text, Types.JobListing)) : Types.JobListing {
-        entry.1
-      }))
+      let filteredJobs = Iter.filter<Types.JobListing>(
+        jobs.vals(),
+        func(job) { job.createdAt >= cutoffTime }
+      );
+      Iter.toArray(filteredJobs)
     };
   };
 }

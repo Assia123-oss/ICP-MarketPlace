@@ -10,10 +10,9 @@ import Types "./Types";
 import Result "mo:base/Result";
 
 module {
-  // Add weights for different match factors
-  private let SKILL_WEIGHT = 0.6;
+  // Adjust weights for match factors (no education weight)
+  private let SKILL_WEIGHT = 0.7;
   private let EXPERIENCE_WEIGHT = 0.3;
-  private let EDUCATION_WEIGHT = 0.1;
 
   public type Error = {
     #UserNotFound;
@@ -38,12 +37,10 @@ module {
       user: Types.User,
       job: Types.JobListing
     ) : MatchScore {
-      // Enhanced matching algorithm
       let skillScore = calculateSkillMatch(user, job) * SKILL_WEIGHT;
       let expScore = calculateExperienceMatch(user, job) * EXPERIENCE_WEIGHT;
-      let eduScore = calculateEducationMatch(user, job) * EDUCATION_WEIGHT;
       
-      let totalScore = skillScore + expScore + eduScore;
+      let totalScore = skillScore + expScore;
       
       {
         jobId = job.id;
@@ -77,7 +74,7 @@ module {
       var matchedSkills : [Text] = [];
       for (userSkill in userSkillNames.vals()) {
         for (jobSkill in jobSkillNames.vals()) {
-          if (userSkill == jobSkill) {
+          if ( userSkill == jobSkill) {
             matchedSkills := Array.append<Text>(matchedSkills, [jobSkill]);
           };
         };
@@ -122,22 +119,6 @@ module {
         experienceBonus := 0.3;
       };
       return experienceBonus;
-    };
-
-    private func calculateEducationMatch(user: Types.User, job: Types.JobListing) : Float {
-      // Calculate based on education match
-      let userEducation = List.toArray(user.education);
-      let jobEducation = List.toArray(job.education);
-
-      var educationBonus : Float = 0.0;
-      for (userEdu in userEducation.vals()) {
-        for (jobEdu in jobEducation.vals()) {
-          if (userEdu.degree == jobEdu.degree and userEdu.field == jobEdu.field) {
-            educationBonus += 0.1; // Add 10% bonus for relevant education
-          };
-        };
-      };
-      return educationBonus;
     };
 
     private func getMatchedSkills(user: Types.User, job: Types.JobListing) : [Text] {
@@ -251,7 +232,7 @@ module {
       )
     };
 
-    // Advanced matching that considers experience and education
+    // Advanced matching that considers experience
     public func advancedMatching(
       user: Types.User,
       job: Types.JobListing

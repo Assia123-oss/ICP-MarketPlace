@@ -44,6 +44,7 @@ module {
     profilePicture: ?Text; // URL or asset ID
     createdAt: Time.Time;
     updatedAt: Time.Time;
+    verified : Bool;
   };
 
   // Job related types
@@ -62,20 +63,21 @@ module {
   };
 
   public type JobListing = {
-    id: Text;
-    title: Text;
-    company: Text;
-    employerId: Text;
-    description: Text;
-    requirements: List.List<Text>;
-    jobType: JobType;
-    location: ?Text; // Optional for remote jobs
-    salary: ?Text; // Optional
-    skills: List.List<Text>;
-    status: JobStatus;
-    createdAt: Time.Time;
-    updatedAt: Time.Time;
-    deadline: ?Time.Time;
+    id : Text;
+    employerId : Text;
+    title : Text;
+    description : Text;
+    company : Text;
+    location : ?Text;
+    salary : ?Text;
+    jobType : JobType;
+    requirements : List.List<Text>;
+    skills : List.List<Text>;
+    deadline : ?Time.Time;
+    status : JobStatus;
+    createdAt : Time.Time;
+    updatedAt : Time.Time;
+    applications : List.List<Text>
   };
 
   // Application related types

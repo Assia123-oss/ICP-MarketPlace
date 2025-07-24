@@ -11,9 +11,16 @@ import Result "mo:base/Result";
 import HashMap "mo:base/HashMap";
 
 module {
-  // Use consistent error types with other modules
-  public type Error = Types.Error;
-  
+  public type Error = {
+    #UserNotFound;
+    #UserAlreadyExists;
+    #InvalidInput;
+    #Unauthorized;
+    #OperationFailed;
+  };
+
+  public type Result<T> = Result.Result<T, Error>;
+
   public class UserManager() {
     private var users = HashMap.HashMap<Text, Types.User>(0, Text.equal, Text.hash);
 
@@ -127,7 +134,7 @@ module {
           #err(#UserNotFound)
         };
         case (?_) {
-          users.delete(id);
+          ignore users.remove(id);
           #ok(())
         };
       };
@@ -260,15 +267,18 @@ module {
 
     // Get all users
     public func getAllUsers() : [Types.User] {
-      HashMap.toArray(users)
+      Iter.toArray(users.vals())
     };
 
     // Get users by role
     public func getUsersByRole(role: Types.Role) : [Types.User] {
-      let filteredUsers = HashMap.filter<Types.User>(users, func(user: Types.User) : Bool {
-        user.role == role
-      });
-      HashMap.toArray(filteredUsers)
+      let filteredUsers = Iter.filter<Types.User>(
+        users.vals(),
+        func(user: Types.User) : Bool {
+          user.role == role
+        }
+      );
+      Iter.toArray(filteredUsers)
     };
   };
 }

@@ -43,7 +43,6 @@ module {
           if (amount > contract.paymentAmount) {
             return #err(#InsufficientFunds);
           };
-          // Here you would integrate with actual payment processing
           #ok(())
         };
       };
@@ -55,18 +54,13 @@ module {
     };
 
     // Helper: remove contract by ID
-    private func removeContractById(id: Text) : HashMap.HashMap<Text, Types.Contract> {
-      HashMap.delete(contracts, id)
+    private func removeContractById(id: Text) : () {
+      ignore contracts.remove(id)
     };
 
     // Helper: find dispute by ID
     public func findDisputeById(id: Text) : ?Types.Dispute {
       disputes.get(id)
-    };
-
-    // Helper: remove dispute by ID
-    private func removeDisputeById(id: Text) : HashMap.HashMap<Text, Types.Dispute> {
-      HashMap.delete(disputes, id)
     };
 
     // Create a new contract
@@ -98,7 +92,7 @@ module {
             createdAt = now;
             updatedAt = now;
           };
-          contracts := HashMap.put(contracts, id, newContract);
+          contracts.put(id, newContract);
           #ok(newContract)
         };
       };
@@ -123,7 +117,6 @@ module {
           #err(#ContractNotFound)
         };
         case (?contract) {
-          // Can only update if contract is in Draft or Pending status
           if (contract.status != #Draft and contract.status != #Pending) {
             return #err(#InvalidStatus);
           };
@@ -141,7 +134,7 @@ module {
             createdAt = contract.createdAt;
             updatedAt = Time.now();
           };
-          contracts := HashMap.put(contracts, id, updatedContract);
+          contracts.put(id, updatedContract);
           #ok(updatedContract)
         };
       };
@@ -157,9 +150,7 @@ module {
           #err(#ContractNotFound)
         };
         case (?contract) {
-          // Validate status transitions
           switch (contract.status, status) {
-            // Valid transitions
             case (#Draft, #Pending) {};
             case (#Pending, #Active) {};
             case (#Active, #Completed) {};
@@ -167,7 +158,6 @@ module {
             case (#Active, #Disputed) {};
             case (#Disputed, #Completed) {};
             case (#Disputed, #Cancelled) {};
-            // Invalid transitions
             case _ {
               return #err(#InvalidStatus);
             };
@@ -193,7 +183,7 @@ module {
             createdAt = contract.createdAt;
             updatedAt = now;
           };
-          contracts := HashMap.put(contracts, id, updatedContract);
+          contracts.put(id, updatedContract);
           #ok(updatedContract)
         };
       };
@@ -210,7 +200,7 @@ module {
             return #err(#InvalidStatus);
           };
           
-          contracts := removeContractById(id);
+          removeContractById(id);
           #ok(())
         };
       };
@@ -218,51 +208,43 @@ module {
 
     // Get all contracts
     public func getAllContracts() : [Types.Contract] {
-      HashMap.toArray(contracts)
+      Iter.toArray(contracts.vals())
     };
 
     // Get contracts by employer
     public func getContractsByEmployer(employerId: Text) : [Types.Contract] {
-      let filteredContracts = HashMap.filter<Types.Contract>(
-        contracts, 
-        func(contract: Types.Contract) : Bool {
-          contract.employerId == employerId
-        }
+      let filteredContracts = Iter.filter<Types.Contract>(
+        contracts.vals(),
+        func(contract) { contract.employerId == employerId }
       );
-      HashMap.toArray(filteredContracts)
+      Iter.toArray(filteredContracts)
     };
 
     // Get contracts by employee
     public func getContractsByEmployee(employeeId: Text) : [Types.Contract] {
-      let filteredContracts = HashMap.filter<Types.Contract>(
-        contracts, 
-        func(contract: Types.Contract) : Bool {
-          contract.employeeId == employeeId
-        }
+      let filteredContracts = Iter.filter<Types.Contract>(
+        contracts.vals(),
+        func(contract) { contract.employeeId == employeeId }
       );
-      HashMap.toArray(filteredContracts)
+      Iter.toArray(filteredContracts)
     };
 
     // Get contracts by job
     public func getContractsByJob(jobId: Text) : [Types.Contract] {
-      let filteredContracts = HashMap.filter<Types.Contract>(
-        contracts, 
-        func(contract: Types.Contract) : Bool {
-          contract.jobId == jobId
-        }
+      let filteredContracts = Iter.filter<Types.Contract>(
+        contracts.vals(),
+        func(contract) { contract.jobId == jobId }
       );
-      HashMap.toArray(filteredContracts)
+      Iter.toArray(filteredContracts)
     };
 
     // Get contracts by status
     public func getContractsByStatus(status: Types.ContractStatus) : [Types.Contract] {
-      let filteredContracts = HashMap.filter<Types.Contract>(
-        contracts, 
-        func(contract: Types.Contract) : Bool {
-          contract.status == status
-        }
+      let filteredContracts = Iter.filter<Types.Contract>(
+        contracts.vals(),
+        func(contract) { contract.status == status }
       );
-      HashMap.toArray(filteredContracts)
+      Iter.toArray(filteredContracts)
     };
 
     // Create a new dispute
@@ -277,12 +259,10 @@ module {
           #err(#ContractNotFound)
         };
         case (?contract) {
-          // Validate that the user is part of the contract
           if (contract.employerId != raisedByUserId and contract.employeeId != raisedByUserId) {
             return #err(#Unauthorized);
           };
           
-          // Update contract status to Disputed
           let _ = updateContractStatus(contractId, #Disputed);
           
           let now = Time.now();
@@ -296,7 +276,7 @@ module {
             createdAt = now;
             updatedAt = now;
           };
-          disputes := HashMap.put(disputes, id, newDispute);
+          disputes.put(id, newDispute);
           #ok(newDispute)
         };
       };
@@ -321,13 +301,10 @@ module {
           #err(#DisputeNotFound)
         };
         case (?dispute) {
-          // Validate status transitions
           switch (dispute.status, status) {
-            // Valid transitions
             case (#Open, #UnderReview) {};
             case (#UnderReview, #Resolved) {};
             case (#Resolved, #Closed) {};
-            // Invalid transitions
             case _ {
               return #err(#InvalidStatus);
             };
@@ -343,7 +320,7 @@ module {
             createdAt = dispute.createdAt;
             updatedAt = Time.now();
           };
-          disputes := HashMap.put(disputes, id, updatedDispute);
+          disputes.put(id, updatedDispute);
           #ok(updatedDispute)
         };
       };
@@ -351,40 +328,34 @@ module {
 
     // Get all disputes
     public func getAllDisputes() : [Types.Dispute] {
-      HashMap.toArray(disputes)
+      Iter.toArray(disputes.vals())
     };
 
     // Get disputes by contract
     public func getDisputesByContract(contractId: Text) : [Types.Dispute] {
-      let filteredDisputes = HashMap.filter<Types.Dispute>(
-        disputes, 
-        func(dispute: Types.Dispute) : Bool {
-          dispute.contractId == contractId
-        }
+      let filteredDisputes = Iter.filter<Types.Dispute>(
+        disputes.vals(),
+        func(dispute) { dispute.contractId == contractId }
       );
-      HashMap.toArray(filteredDisputes)
+      Iter.toArray(filteredDisputes)
     };
 
     // Get disputes by user
     public func getDisputesByUser(userId: Text) : [Types.Dispute] {
-      let filteredDisputes = HashMap.filter<Types.Dispute>(
-        disputes, 
-        func(dispute: Types.Dispute) : Bool {
-          dispute.raisedByUserId == userId
-        }
+      let filteredDisputes = Iter.filter<Types.Dispute>(
+        disputes.vals(),
+        func(dispute) { dispute.raisedByUserId == userId }
       );
-      HashMap.toArray(filteredDisputes)
+      Iter.toArray(filteredDisputes)
     };
 
     // Get disputes by status
     public func getDisputesByStatus(status: Types.DisputeStatus) : [Types.Dispute] {
-      let filteredDisputes = HashMap.filter<Types.Dispute>(
-        disputes, 
-        func(dispute: Types.Dispute) : Bool {
-          dispute.status == status
-        }
+      let filteredDisputes = Iter.filter<Types.Dispute>(
+        disputes.vals(),
+        func(dispute) { dispute.status == status }
       );
-      HashMap.toArray(filteredDisputes)
+      Iter.toArray(filteredDisputes)
     };
   };
 }

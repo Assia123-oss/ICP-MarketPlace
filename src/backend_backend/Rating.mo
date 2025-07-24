@@ -28,12 +28,12 @@ module {
 
     // Helper: find rating by ID
     public func findRatingById(id: Text) : ?Types.Rating {
-      HashMap.get<Text, Types.Rating>(ratings, id)
+      ratings.get(id)
     };
 
     // Helper: remove rating by ID
-    private func removeRatingById(id: Text) : HashMap.HashMap<Text, Types.Rating> {
-      HashMap.delete<Text, Types.Rating>(ratings, id)
+    private func removeRatingById(id: Text) : () {
+      ignore ratings.remove(id)
     };
 
     // Create a new rating
@@ -55,10 +55,7 @@ module {
       };
       
       // Check if user has already rated this user
-      let existingRating = HashMap.get<Text, Types.Rating>(
-        ratings, 
-        fromUserId # "-" # toUserId
-      );
+      let existingRating = ratings.get(fromUserId # "-" # toUserId);
       
       switch (existingRating) {
         case (?_) {
@@ -74,7 +71,7 @@ module {
             comment = comment;
             createdAt = now;
           };
-          ratings := HashMap.put<Text, Types.Rating>(ratings, id, newRating);
+          ratings.put(id, newRating);
           #ok(newRating)
         };
       }
@@ -112,7 +109,7 @@ module {
             comment = comment;
             createdAt = rating.createdAt;
           };
-          ratings := HashMap.put<Text, Types.Rating>(ratings, id, updatedRating);
+          ratings.put(id, updatedRating);
           #ok(updatedRating)
         };
       };
@@ -125,7 +122,7 @@ module {
           #err(#RatingNotFound)
         };
         case (?_) {
-          ratings := removeRatingById(id);
+          removeRatingById(id);
           #ok(())
         };
       };
@@ -133,29 +130,29 @@ module {
 
     // Get all ratings
     public func getAllRatings() : [Types.Rating] {
-      HashMap.values<Text, Types.Rating>(ratings)
+      Iter.toArray(ratings.vals())
     };
 
     // Get ratings given by a user
     public func getRatingsByFromUser(userId: Text) : [Types.Rating] {
-      let filteredRatings = HashMap.filter<Text, Types.Rating>(
-        ratings, 
-        func(id: Text, rating: Types.Rating) : Bool {
+      let filteredRatings = Iter.filter<Types.Rating>(
+        ratings.vals(),
+        func(rating: Types.Rating) : Bool {
           rating.fromUserId == userId
         }
       );
-      HashMap.values<Text, Types.Rating>(filteredRatings)
+      Iter.toArray(filteredRatings)
     };
 
     // Get ratings received by a user
     public func getRatingsByToUser(userId: Text) : [Types.Rating] {
-      let filteredRatings = HashMap.filter<Text, Types.Rating>(
-        ratings, 
-        func(id: Text, rating: Types.Rating) : Bool {
+      let filteredRatings = Iter.filter<Types.Rating>(
+        ratings.vals(),
+        func(rating: Types.Rating) : Bool {
           rating.toUserId == userId
         }
       );
-      HashMap.values<Text, Types.Rating>(filteredRatings)
+      Iter.toArray(filteredRatings)
     };
 
     // Calculate average rating for a user
@@ -163,16 +160,16 @@ module {
       let userRatings = getRatingsByToUser(userId);
       
       if (userRatings.size() == 0) {
-        null
-      } else {
-        var sum : Nat = 0;
-        for (rating in userRatings.vals()) {
-          sum += rating.score;
-        };
-        
-        let average : Float = Float.fromInt(sum) / Float.fromInt(userRatings.size());
-        ?average
-      }
+        return null;
+      };
+      
+      var sum : Nat = 0;
+      for (rating in userRatings.vals()) {
+        sum += rating.score;
+      };
+      
+      let average : Float = Float.fromInt(sum) / Float.fromInt(userRatings.size());
+      ?average
     };
 
     // Get rating distribution for a user (count of 1-5 star ratings)
@@ -190,10 +187,7 @@ module {
 
     // Check if a user has already rated another user
     public func hasUserRated(fromUserId: Text, toUserId: Text) : Bool {
-      let existingRating = HashMap.get<Text, Types.Rating>(
-        ratings, 
-        fromUserId # "-" # toUserId
-      );
+      let existingRating = ratings.get(fromUserId # "-" # toUserId);
       
       switch (existingRating) {
         case (?_) { true };
@@ -206,13 +200,13 @@ module {
       let now = Time.now();
       let cutoffTime = now - timeWindow;
       
-      let filteredRatings = HashMap.filter<Text, Types.Rating>(
-        ratings, 
-        func(id: Text, rating: Types.Rating) : Bool {
+      let filteredRatings = Iter.filter<Types.Rating>(
+        ratings.vals(),
+        func(rating: Types.Rating) : Bool {
           rating.createdAt >= cutoffTime
         }
       );
-      HashMap.values<Text, Types.Rating>(filteredRatings)
+      Iter.toArray(filteredRatings)
     };
   };
 }

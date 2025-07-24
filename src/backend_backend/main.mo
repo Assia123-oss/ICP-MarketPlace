@@ -13,7 +13,6 @@ import Error "mo:base/Error";
 import HashMap "mo:base/HashMap";
 import Iter "mo:base/Iter";
 
-
 // Import our modules
 import Types "./Types";
 import User "./User";
@@ -24,52 +23,13 @@ import Rating "./Rating";
 import Contract "./Contract";
 
 actor JobMarketplace {
-  // Initialize HashMaps (non-stable)
-  private var users = HashMap.HashMap<Text, Types.User>(0, Text.equal, Text.hash);
-  private var jobs = HashMap.HashMap<Text, Types.JobListing>(0, Text.equal, Text.hash);
-  private var applications = HashMap.HashMap<Text, Types.JobApplication>(0, Text.equal, Text.hash);
-  private var ratings = HashMap.HashMap<Text, Types.Rating>(0, Text.equal, Text.hash);
-  private var contracts = HashMap.HashMap<Text, Types.Contract>(0, Text.equal, Text.hash);
-  private var disputes = HashMap.HashMap<Text, Types.Dispute>(0, Text.equal, Text.hash);
-
-  // Stable variables to persist data across upgrades
-  stable var stableUsers : [(Text, Types.User)] = [];
-  stable var stableJobs : [(Text, Types.JobListing)] = [];
-  stable var stableApplications : [(Text, Types.JobApplication)] = [];
-  stable var stableRatings : [(Text, Types.Rating)] = [];
-  stable var stableContracts : [(Text, Types.Contract)] = [];
-  stable var stableDisputes : [(Text, Types.Dispute)] = [];
-
-  // Save data before upgrade
-  system func preupgrade() {
-    stableUsers := Iter.toArray(users.entries());
-    stableJobs := Iter.toArray(jobs.entries());
-    stableApplications := Iter.toArray(applications.entries());
-    stableRatings := Iter.toArray(ratings.entries());
-    stableContracts := Iter.toArray(contracts.entries());
-    stableDisputes := Iter.toArray(disputes.entries());
-  };
-
-  // Restore data after upgrade
-  system func postupgrade() {
-    users := HashMap.fromIter<Text, Types.User>(stableUsers.vals(), 0, Text.equal, Text.hash);
-    jobs := HashMap.fromIter<Text, Types.JobListing>(stableJobs.vals(), 0, Text.equal, Text.hash);
-    applications := HashMap.fromIter<Text, Types.JobApplication>(stableApplications.vals(), 0, Text.equal, Text.hash);
-    ratings := HashMap.fromIter<Text, Types.Rating>(stableRatings.vals(), 0, Text.equal, Text.hash);
-    contracts := HashMap.fromIter<Text, Types.Contract>(stableContracts.vals(), 0, Text.equal, Text.hash);
-    disputes := HashMap.fromIter<Text, Types.Dispute>(stableDisputes.vals(), 0, Text.equal, Text.hash);
-    stableUsers := [];
-    stableJobs := [];
-    stableApplications := [];
-    stableRatings := [];
-    stableContracts := [];
-    stableDisputes := [];
-  };
-
-  public type Result<T, E> = {
-  #ok : T;
-  #err : E;
-};
+  // Initialize module managers
+  private let userManager = User.UserManager();
+  private let jobManager = Job.JobManager();
+  private let applicationManager = Application.ApplicationManager();
+  private let contractManager = Contract.ContractManager();
+  private let matchingEngine = Matching.MatchingEngine();
+  private let ratingManager = Rating.RatingManager();
 
   // Enhanced UUID generator
   private func generateUUID(prefix : Text) : Text {
@@ -84,7 +44,7 @@ actor JobMarketplace {
   };
 
   // ===== User Management =====
-  
+
   // Register a new user
   public func registerUser(
     name: Text, 
@@ -94,21 +54,22 @@ actor JobMarketplace {
     bio: ?Text,
     location: ?Text,
     profilePicture: ?Text
-  ) : async Types.Result<Types.User, Text> {
+  ) : async Result.Result<Types.User, Text> {
     let userId = generateUUID("user");
-    
-    switch (await userManager.registerUser(
-      userId, name, email, role, portfolio, bio, location, profilePicture
-    )) {
-      case (#ok(user)) { #ok(user) };
-      case (#err(error)) {
-        switch (error) {
-          case (#UserAlreadyExists) { #err("User already exists") };
-          case (#InvalidInput) { #err("Invalid input") };
-          case _ { #err("Registration failed") };
-        };
-      };
-    };
+
+    switch (userManager.registerUser(
+        userId, name, email, role, portfolio, bio, location, profilePicture
+      )) {
+        case (#ok(user)) { #ok(user) };
+        case (#err(error)) {
+          switch (error) {
+            case (#UserAlreadyExists) { #err("User already exists") };
+            case (#InvalidInput) { #err("Invalid input") };
+            case _ { #err("Registration failed") };
+          }
+        }
+      }
+
   };
 
   // Get a user by ID
@@ -116,7 +77,7 @@ actor JobMarketplace {
     switch (userManager.getUser(id)) {
       case (#ok(user)) { ?user };
       case (#err(_)) { null };
-    };
+    }
   };
 
   // Update a user
@@ -128,32 +89,36 @@ actor JobMarketplace {
     bio: ?Text,
     location: ?Text,
     profilePicture: ?Text
-  ) : async Types.Result<(), Text> {
-    switch (await userManager.updateUser(
-      id, name, email, portfolio, bio, location, profilePicture
-    )) {
-      case (#ok(_)) { #ok() };
-      case (#err(error)) {
-        switch (error) {
-          case (#UserNotFound) { #err("User not found") };
-          case (#InvalidInput) { #err("Invalid input") };
-          case _ { #err("Update failed") };
-        };
-      };
-    };
+  ) : async Result.Result<(), Text> {
+
+      switch (userManager.updateUser(
+        id, name, email, portfolio, bio, location, profilePicture
+      )) {
+        case (#ok(_)) { #ok() };
+        case (#err(error)) {
+          switch (error) {
+            case (#UserNotFound) { #err("User not found") };
+            case (#InvalidInput) { #err("Invalid input") };
+            case _ { #err("Update failed") };
+          }
+        }
+      }
+
   };
 
   // Add a skill to user
-  public func addSkill(userId: Text, name: Text, level: Text) : async Types.Result<(), Text> {
-    switch (await userManager.addSkill(userId, name, level)) {
-      case (#ok(_)) { #ok() };
-      case (#err(error)) {
-        switch (error) {
-          case (#UserNotFound) { #err("User not found") };
-          case _ { #err("Failed to add skill") };
-        };
-      };
-    };
+  public func addSkill(userId: Text, name: Text, level: Text) : async Result.Result<(), Text> {
+
+      switch (userManager.addSkill(userId, name, level)) {
+        case (#ok(_)) { #ok() };
+        case (#err(error)) {
+          switch (error) {
+            case (#UserNotFound) { #err("User not found") };
+            case _ { #err("Failed to add skill") };
+          }
+        }
+      }
+
   };
 
   // Add experience to user
@@ -164,18 +129,20 @@ actor JobMarketplace {
     startDate: Time.Time, 
     endDate: ?Time.Time, 
     description: Text
-  ) : async Types.Result<(), Text> {
-    switch (await userManager.addExperience(
-      userId, title, company, startDate, endDate, description
-    )) {
-      case (#ok(_)) { #ok() };
-      case (#err(error)) {
-        switch (error) {
-          case (#UserNotFound) { #err("User not found") };
-          case _ { #err("Failed to add experience") };
-        };
-      };
-    };
+  ) : async Result.Result<(), Text> {
+
+      switch (userManager.addExperience(
+        userId, title, company, startDate, endDate, description
+      )) {
+        case (#ok(_)) { #ok() };
+        case (#err(error)) {
+          switch (error) {
+            case (#UserNotFound) { #err("User not found") };
+            case _ { #err("Failed to add experience") };
+          }
+        }
+      }
+
   };
 
   // Add education to user
@@ -186,18 +153,20 @@ actor JobMarketplace {
     field: Text, 
     startDate: Time.Time, 
     endDate: ?Time.Time
-  ) : async Types.Result<(), Text> {
-    switch (await userManager.addEducation(
-      userId, institution, degree, field, startDate, endDate
-    )) {
-      case (#ok(_)) { #ok() };
-      case (#err(error)) {
-        switch (error) {
-          case (#UserNotFound) { #err("User not found") };
-          case _ { #err("Failed to add education") };
-        };
-      };
-    };
+  ) : async Result.Result<(), Text> {
+
+      switch (userManager.addEducation(
+        userId, institution, degree, field, startDate, endDate
+      )) {
+        case (#ok(_)) { #ok() };
+        case (#err(error)) {
+          switch (error) {
+            case (#UserNotFound) { #err("User not found") };
+            case _ { #err("Failed to add education") };
+          }
+        }
+      }
+
   };
 
   // Get all users
@@ -211,7 +180,7 @@ actor JobMarketplace {
   };
 
   // ===== Job Management =====
-  
+
   // Create a new job listing
   public func createJob(
     title: Text,
@@ -224,22 +193,23 @@ actor JobMarketplace {
     salary: ?Text,
     skills: [Text],
     deadline: ?Time.Time
-  ) : async Types.Result<Types.JobListing, Text> {
+  ) : async Result.Result<Types.JobListing, Text> {
     let jobId = generateUUID("job");
-    
-    switch (await jobManager.createJob(
-      jobId, title, company, employerId, description, requirements, 
-      jobType, location, salary, skills, deadline
-    )) {
-      case (#ok(job)) { #ok(job) };
-      case (#err(error)) {
-        switch (error) {
-          case (#JobAlreadyExists) { #err("Job already exists") };
-          case (#InvalidInput) { #err("Invalid input") };
-          case _ { #err("Job creation failed") };
-        };
-      };
-    };
+
+    switch (jobManager.createJob(
+        jobId, title, company, employerId, description, requirements, 
+        jobType, location, salary, skills, deadline
+      )) {
+        case (#ok(job)) { #ok(job) };
+        case (#err(error)) {
+          switch (error) {
+            case (#JobAlreadyExists) { #err("Job already exists") };
+            case (#InvalidInput) { #err("Invalid input") };
+            case _ { #err("Job creation failed") };
+          }
+        }
+      }
+
   };
 
   // Get a job by ID
@@ -247,7 +217,7 @@ actor JobMarketplace {
     switch (jobManager.getJob(id)) {
       case (#ok(job)) { ?job };
       case (#err(_)) { null };
-    };
+    }
   };
 
   // Update a job listing
@@ -263,33 +233,37 @@ actor JobMarketplace {
     skills: [Text],
     status: Types.JobStatus,
     deadline: ?Time.Time
-  ) : async Types.Result<(), Text> {
-    switch (await jobManager.updateJob(
-      id, title, company, description, requirements, 
-      jobType, location, salary, skills, status, deadline
-    )) {
-      case (#ok(_)) { #ok() };
-      case (#err(error)) {
-        switch (error) {
-          case (#JobNotFound) { #err("Job not found") };
-          case (#InvalidInput) { #err("Invalid input") };
-          case _ { #err("Update failed") };
-        };
-      };
-    };
+  ) : async Result.Result<(), Text> {
+
+      switch (jobManager.updateJob(
+        id, title, company, description, requirements, 
+        jobType, location, salary, skills, status, deadline
+      )) {
+        case (#ok(_)) { #ok() };
+        case (#err(error)) {
+          switch (error) {
+            case (#JobNotFound) { #err("Job not found") };
+            case (#InvalidInput) { #err("Invalid input") };
+            case _ { #err("Update failed") };
+          }
+        }
+      }
+
   };
 
   // Change job status
-  public func changeJobStatus(id: Text, status: Types.JobStatus) : async Types.Result<(), Text> {
-    switch (await jobManager.changeJobStatus(id, status)) {
-      case (#ok(_)) { #ok() };
-      case (#err(error)) {
-        switch (error) {
-          case (#JobNotFound) { #err("Job not found") };
-          case _ { #err("Status update failed") };
-        };
-      };
-    };
+  public func changeJobStatus(id: Text, status: Types.JobStatus) : async Result.Result<(), Text> {
+
+      switch (jobManager.changeJobStatus(id, status)) {
+        case (#ok(_)) { #ok() };
+        case (#err(error)) {
+          switch (error) {
+            case (#JobNotFound) { #err("Job not found") };
+            case _ { #err("Status update failed") };
+          }
+        }
+      }
+
   };
 
   // Get all jobs
@@ -323,28 +297,29 @@ actor JobMarketplace {
   };
 
   // ===== Application Management =====
-  
+
   // Create a new job application
   public func createApplication(
     jobId: Text,
     userId: Text,
     coverLetter: ?Text
-  ) : async Types.Result<Types.JobApplication, Text> {
+  ) : async Result.Result<Types.JobApplication, Text> {
     let applicationId = generateUUID("application");
-    
-    switch (await applicationManager.createApplication(
-      applicationId, jobId, userId, coverLetter
-    )) {
-      case (#ok(application)) { #ok(application) };
-      case (#err(error)) {
-        switch (error) {
-          case (#ApplicationAlreadyExists) { #err("Already applied for this job") };
-          case (#JobNotFound) { #err("Job not found") };
-          case (#UserNotFound) { #err("User not found") };
-          case _ { #err("Application submission failed") };
-        };
-      };
-    };
+
+    switch (applicationManager.createApplication(
+        applicationId, jobId, userId, coverLetter
+      )) {
+        case (#ok(application)) { #ok(application) };
+        case (#err(error)) {
+          switch (error) {
+            case (#ApplicationAlreadyExists) { #err("Already applied for this job") };
+            case (#JobNotFound) { #err("Job not found") };
+            case (#UserNotFound) { #err("User not found") };
+            case _ { #err("Application submission failed") };
+          }
+        }
+      }
+
   };
 
   // Get an application by ID
@@ -352,23 +327,25 @@ actor JobMarketplace {
     switch (applicationManager.getApplication(id)) {
       case (#ok(application)) { ?application };
       case (#err(_)) { null };
-    };
+    }
   };
 
   // Update application status
   public func updateApplicationStatus(
     id: Text,
     status: Types.ApplicationStatus
-  ) : async Types.Result<(), Text> {
-    switch (await applicationManager.updateApplicationStatus(id, status)) {
-      case (#ok(_)) { #ok() };
-      case (#err(error)) {
-        switch (error) {
-          case (#ApplicationNotFound) { #err("Application not found") };
-          case _ { #err("Status update failed") };
-        };
-      };
-    };
+  ) : async Result.Result<(), Text> {
+
+      switch (applicationManager.updateApplicationStatus(id, status)) {
+        case (#ok(_)) { #ok() };
+        case (#err(error)) {
+          switch (error) {
+            case (#ApplicationNotFound) { #err("Application not found") };
+            case _ { #err("Status update failed") };
+          }
+        }
+      }
+
   };
 
   // Get applications by job ID
@@ -387,67 +364,74 @@ actor JobMarketplace {
   };
 
   // ===== Matching Engine =====
-  
+
   // Find matching jobs for a user
-  public func findMatchingJobs(userId: Text, minScore: Float) : async Types.Result<[Matching.MatchScore], Text> {
-    switch (await userManager.getUser(userId)) {
-      case (#ok(user)) {
-        let jobs = await jobManager.getAllJobs();
-        let matches = await matchingEngine.findMatchingJobs(user, jobs, minScore);
-        #ok(matches)
-      };
-      case (#err(_)) { #err("User not found") };
-    };
+  public func findMatchingJobs(userId: Text, minScore: Float) : async Result.Result<[Matching.MatchScore], Text> {
+
+      switch (userManager.getUser(userId)) {
+        case (#ok(user)) {
+          let jobs = jobManager.getAllJobs();
+          let matches = matchingEngine.findMatchingJobs(user, jobs, minScore);
+          #ok(matches)
+        };
+        case (#err(_)) { #err("User not found") };
+      }
+
   };
 
   // Find matching candidates for a job
-  public func findMatchingCandidates(jobId: Text, minScore: Float) : async Types.Result<[Matching.MatchScore], Text> {
-    switch (await jobManager.getJob(jobId)) {
-      case (#ok(job)) {
-        let users = await userManager.getAllUsers();
-        let matches = await matchingEngine.findMatchingCandidates(job, users, minScore);
-        #ok(matches)
-      };
-      case (#err(_)) { #err("Job not found") };
-    };
+  public func findMatchingCandidates(jobId: Text, minScore: Float) : async Result.Result<[Matching.MatchScore], Text> {
+
+      switch (jobManager.getJob(jobId)) {
+        case (#ok(job)) {
+          let users = userManager.getAllUsers();
+          let matches = matchingEngine.findMatchingCandidates(job, users, minScore);
+          #ok(matches)
+        };
+        case (#err(_)) { #err("Job not found") };
+      }
+
   };
 
   // Find matching jobs with advanced matching
-  public func findMatchingJobsAdvanced(userId: Text, minScore: Float) : async Types.Result<[Matching.MatchScore], Text> {
-    switch (await userManager.getUser(userId)) {
-      case (#ok(user)) {
-        let jobs = await jobManager.getAllJobs();
-        let matches = await matchingEngine.findMatchingJobsAdvanced(user, jobs, minScore);
-        #ok(matches)
-      };
-      case (#err(_)) { #err("User not found") };
-    };
+  public func findMatchingJobsAdvanced(userId: Text, minScore: Float) : async Result.Result<[Matching.MatchScore], Text> {
+
+      switch (userManager.getUser(userId)) {
+        case (#ok(user)) {
+          let jobs = jobManager.getAllJobs();
+          let matches = matchingEngine.findMatchingJobsAdvanced(user, jobs, minScore);
+          #ok(matches)
+        };
+        case (#err(_)) { #err("User not found") };
+      }
+
   };
 
   // ===== Rating System =====
-  
+
   // Create a new rating
   public func createRating(
     fromUserId: Text,
     toUserId: Text,
     score: Nat,
     comment: ?Text
-  ) : async Types.Result<Types.Rating, Text> {
+  ) : async Result.Result<Types.Rating, Text> {
     let ratingId = generateUUID("rating");
-    
-    switch (await ratingManager.createRating(
-      ratingId, fromUserId, toUserId, score, comment
-    )) {
-      case (#ok(rating)) { #ok(rating) };
-      case (#err(error)) {
-        switch (error) {
-          case (#InvalidRating) { #err("Invalid rating score (1-5)") };
-          case (#SelfRatingNotAllowed) { #err("Cannot rate yourself") };
-          case (#AlreadyRated) { #err("Already rated this user") };
-          case _ { #err("Rating submission failed") };
-        };
-      };
-    };
+
+    switch (ratingManager.createRating(
+        ratingId, fromUserId, toUserId, score, comment
+      )) {
+        case (#ok(rating)) { #ok(rating) };
+        case (#err(error)) {
+          switch (error) {
+            case (#InvalidRating) { #err("Invalid rating score (1-5)") };
+            case (#SelfRatingNotAllowed) { #err("Cannot rate yourself") };
+            case (#AlreadyRated) { #err("Already rated this user") };
+            case _ { #err("Rating submission failed") };
+          }
+        }
+      }
+
   };
 
   // Get ratings received by a user
@@ -471,7 +455,7 @@ actor JobMarketplace {
   };
 
   // ===== Contract Management =====
-  
+
   // Create a new contract
   public func createContract(
     jobId: Text,
@@ -480,20 +464,21 @@ actor JobMarketplace {
     terms: Text,
     paymentAmount: Nat,
     startDate: Time.Time
-  ) : async Types.Result<Types.Contract, Text> {
+  ) : async Result.Result<Types.Contract, Text> {
     let contractId = generateUUID("contract");
-    
-    switch (await contractManager.createContract(
-      contractId, jobId, employerId, employeeId, terms, paymentAmount, startDate
-    )) {
-      case (#ok(contract)) { #ok(contract) };
-      case (#err(error)) {
-        switch (error) {
-          case (#InvalidInput) { #err("Invalid input") };
-          case _ { #err("Contract creation failed") };
-        };
-      };
-    };
+
+    switch (contractManager.createContract(
+        contractId, jobId, employerId, employeeId, terms, paymentAmount, startDate
+      )) {
+        case (#ok(contract)) { #ok(contract) };
+        case (#err(error)) {
+          switch (error) {
+            case (#InvalidInput) { #err("Invalid input") };
+            case _ { #err("Contract creation failed") };
+          }
+        }
+      }
+
   };
 
   // Get a contract by ID
@@ -501,24 +486,26 @@ actor JobMarketplace {
     switch (contractManager.getContract(id)) {
       case (#ok(contract)) { ?contract };
       case (#err(_)) { null };
-    };
+    }
   };
 
   // Update contract status
   public func updateContractStatus(
     id: Text,
     status: Types.ContractStatus
-  ) : async Types.Result<(), Text> {
-    switch (await contractManager.updateContractStatus(id, status)) {
-      case (#ok(_)) { #ok() };
-      case (#err(error)) {
-        switch (error) {
-          case (#ContractNotFound) { #err("Contract not found") };
-          case (#InvalidStatus) { #err("Invalid status transition") };
-          case _ { #err("Status update failed") };
-        };
-      };
-    };
+  ) : async Result.Result<(), Text> {
+
+      switch (contractManager.updateContractStatus(id, status)) {
+        case (#ok(_)) { #ok() };
+        case (#err(error)) {
+          switch (error) {
+            case (#ContractNotFound) { #err("Contract not found") };
+            case (#InvalidStatus) { #err("Invalid status transition") };
+            case _ { #err("Status update failed") };
+          }
+        }
+      }
+
   };
 
   // Get contracts by employer
@@ -536,21 +523,22 @@ actor JobMarketplace {
     contractId: Text,
     raisedByUserId: Text,
     description: Text
-  ) : async Types.Result<Types.Dispute, Text> {
+  ) : async Result.Result<Types.Dispute, Text> {
     let disputeId = generateUUID("dispute");
-    
-    switch (await contractManager.createDispute(
-      disputeId, contractId, raisedByUserId, description
-    )) {
-      case (#ok(dispute)) { #ok(dispute) };
-      case (#err(error)) {
-        switch (error) {
-          case (#ContractNotFound) { #err("Contract not found") };
-          case (#Unauthorized) { #err("Not authorized") };
-          case _ { #err("Dispute creation failed") };
-        };
-      };
-    };
+
+    switch (contractManager.createDispute(
+        disputeId, contractId, raisedByUserId, description
+      )) {
+        case (#ok(dispute)) { #ok(dispute) };
+        case (#err(error)) {
+          switch (error) {
+            case (#ContractNotFound) { #err("Contract not found") };
+            case (#Unauthorized) { #err("Not authorized") };
+            case _ { #err("Dispute creation failed") };
+          }
+        }
+      }
+
   };
 
   // Get a dispute by ID
@@ -558,7 +546,7 @@ actor JobMarketplace {
     switch (contractManager.getDispute(id)) {
       case (#ok(dispute)) { ?dispute };
       case (#err(_)) { null };
-    };
+    }
   };
 
   // Update dispute status
@@ -566,17 +554,19 @@ actor JobMarketplace {
     id: Text,
     status: Types.DisputeStatus,
     resolution: ?Text
-  ) : async Types.Result<(), Text> {
-    switch (await contractManager.updateDisputeStatus(id, status, resolution)) {
-      case (#ok(_)) { #ok() };
-      case (#err(error)) {
-        switch (error) {
-          case (#DisputeNotFound) { #err("Dispute not found") };
-          case (#InvalidStatus) { #err("Invalid status transition") };
-          case _ { #err("Status update failed") };
-        };
-      };
-    };
+  ) : async Result.Result<(), Text> {
+
+      switch (contractManager.updateDisputeStatus(id, status, resolution)) {
+        case (#ok(_)) { #ok() };
+        case (#err(error)) {
+          switch (error) {
+            case (#DisputeNotFound) { #err("Dispute not found") };
+            case (#InvalidStatus) { #err("Invalid status transition") };
+            case _ { #err("Status update failed") };
+          }
+        }
+      }
+
   };
 
   // Get disputes by contract
