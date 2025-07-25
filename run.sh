@@ -24,6 +24,11 @@ else
     echo "Internet Computer replica is already running."
 fi
 
+# Build the frontend
+echo "Building frontend..."
+cd src/backend_frontend && npm run build || { echo "Error: Failed to build frontend"; exit 1; }
+cd ../..
+
 # Deploy the canisters
 echo "Deploying canisters..."
 dfx deploy || { echo "Error: Failed to deploy canisters"; exit 1; }

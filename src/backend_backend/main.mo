@@ -1,17 +1,17 @@
-import Debug "mo:base/Debug";
-import List "mo:base/List";
+//import Debug "mo:base/Debug";
+//import List "mo:base/List";
 import Text "mo:base/Text";
-import Option "mo:base/Option";
+//import Option "mo:base/Option";
 import Time "mo:base/Time";
-import Array "mo:base/Array";
+//import Array "mo:base/Array";
 import Nat "mo:base/Nat";
-import Nat64 "mo:base/Nat64";
+//import Nat64 "mo:base/Nat64";
 import Int "mo:base/Int";
 import Float "mo:base/Float";
 import Result "mo:base/Result";
-import Error "mo:base/Error";
-import HashMap "mo:base/HashMap";
-import Iter "mo:base/Iter";
+//import Error "mo:base/Error";
+//import HashMap "mo:base/HashMap";
+//import Iter "mo:base/Iter";
 
 // Import our modules
 import Types "./Types";

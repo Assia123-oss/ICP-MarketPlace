@@ -7,8 +7,7 @@
     "backend_frontend": {
       "dependencies": ["backend_backend"],
       "source": ["src/backend_frontend/dist"],
-      "type": "assets",
-      "workspace": "backend_frontend"
+      "type": "assets"
     }
   },
   "defaults": {
